@@ -1,0 +1,3 @@
+langchain 
+gpt4all 
+python-dotenv
