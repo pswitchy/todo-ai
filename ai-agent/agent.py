@@ -1,177 +1,124 @@
-# ai-agent/agent.py
+# agent.py (updated parsing and initialization)
 import os
+import re
 from datetime import datetime
 from typing import List, Dict
 from dotenv import load_dotenv
-from langchain.chains import LLMChain
-from langchain.prompts import PromptTemplate
-from langchain_community.llms import GPT4All
+import google.generativeai as genai
+import absl.logging
 
-# Load environment variables
+# Suppress gRPC warnings
+absl.logging.set_verbosity(absl.logging.ERROR)
+os.environ['GRPC_DNS_RESOLVER'] = 'native'
+
 load_dotenv()
 
 class AIAgent:
     def __init__(self):
-        self.model_path = os.getenv('GPT4ALL_MODEL_PATH', './models/ggml-gpt4all-j-v1.3-groovy.bin')
-        self.llm = self._initialize_model()
+        self.model_name = "gemini-1.0-pro"
+        self.client = self._initialize_client()
         
-    def _initialize_model(self):
-        """Initialize the GPT4All language model"""
+    def _initialize_client(self):
+        """Initialize Gemini client with API key"""
         try:
-            return GPT4All(model=self.model_path, verbose=False)
+            api_key = os.getenv("GOOGLE_API_KEY")
+            if not api_key:
+                raise ValueError("GOOGLE_API_KEY not found in .env file")
+                
+            genai.configure(api_key=api_key)
+            return genai.GenerativeModel(self.model_name)
         except Exception as e:
-            raise RuntimeError(f"Failed to initialize AI model: {str(e)}")
+            raise RuntimeError(f"Failed to initialize Gemini client: {str(e)}")
 
     def prioritize_tasks(self, tasks: List[Dict], simulate: bool = False) -> List[Dict]:
-        """
-        Prioritize tasks using AI analysis of description, deadline, and type
-        
-        Args:
-            tasks: List of task dictionaries
-            simulate: Whether to use simulated AI or real model
-            
-        Returns:
-            List of prioritized tasks with AI reasoning
-        """
+        """Prioritize tasks using AI analysis with improved parsing"""
         if simulate:
             return self._simulate_prioritization(tasks)
             
-        prompt_template = PromptTemplate(
-            input_variables=["tasks"],
-            template="""Analyze these tasks and prioritize them. Consider deadlines, task types, and descriptions.
-            Return the prioritized order with brief reasoning. Use ISO dates for deadline comparison.
-
-            Tasks:
-            {tasks}
-
-            Format response as:
-            - Task: [task description] | Priority: [1-5] | Reason: [short reason]
-            """
-        )
-        
-        chain = LLMChain(llm=self.llm, prompt=prompt_template)
-        task_list = "\n".join([self._format_task(t) for t in tasks])
-        
         try:
-            response = chain.invoke({"tasks": task_list})
-            return self._parse_prioritization(response['text'], tasks)
+            prompt = self._build_prioritization_prompt(tasks)
+            response = self.client.generate_content(prompt)
+            return self._parse_prioritization(response.text, tasks)
         except Exception as e:
             print(f"AI prioritization failed: {str(e)}")
             return self._fallback_prioritization(tasks)
 
-    def generate_reminder(self, task: Dict, simulate: bool = False) -> str:
-        """
-        Generate a context-aware reminder using AI
+    def _parse_prioritization(self, response: str, original_tasks: List[Dict]) -> List[Dict]:
+        """Enhanced parsing with exact description matching"""
+        task_map = {t['description']: t for t in original_tasks}
+        prioritized = []
         
-        Args:
-            task: Task dictionary
-            simulate: Whether to use simulated AI or real model
-            
-        Returns:
-            Generated reminder text
-        """
-        if simulate:
-            return self._simulate_reminder(task)
-            
-        prompt_template = PromptTemplate(
-            input_variables=["task"],
-            template="""Generate a helpful reminder for this task. Consider:
-            - Task type: {task_type}
-            - Deadline: {deadline}
-            - Description: {description}
-            
-            Make it friendly and motivational. Include time sensitivity.
-            """
-        )
+        # Flexible regex pattern with debug logging
+        pattern = r"Task:\s*(.+?)\s*[|∶•]\s*Priority:\s*(\d+)\s*[|∶•]\s*Reason:\s*(.+)"
+        matches = re.finditer(pattern, response, re.IGNORECASE)
         
-        chain = LLMChain(llm=self.llm, prompt=prompt_template)
+        for match in matches:
+            try:
+                full_desc = match.group(1).strip()
+                priority = int(match.group(2))
+                reason = match.group(3).strip()
+                
+                # Find original task by partial match
+                original_task = next(
+                    (t for t in original_tasks if t['description'] in full_desc),
+                    None
+                )
+                
+                if original_task:
+                    prioritized.append({
+                        "task": original_task,
+                        "priority": priority,
+                        "reason": reason
+                    })
+                else:
+                    print(f"Description mismatch: '{full_desc}' not in original tasks")
+                    
+            except (ValueError, IndexError, KeyError) as e:
+                print(f"Error parsing line: {match.group(0)} - {str(e)}")
         
-        try:
-            response = chain.invoke({
-                "task_type": task.get('taskType', 'task'),
-                "deadline": task.get('deadline', 'unknown'),
-                "description": task.get('description', '')
-            })
-            return response['text'].strip()
-        except Exception as e:
-            print(f"Reminder generation failed: {str(e)}")
-            return self._fallback_reminder(task)
+        if not prioritized:
+            print("No valid priorities found. Response was:\n", response)
+            return self._fallback_prioritization(original_tasks)
+            
+        return prioritized
+
+    def _build_prioritization_prompt(self, tasks: List[Dict]) -> str:
+        """Improved prompt with strict formatting instructions"""
+        task_list = "\n".join([self._format_task(t) for t in tasks])
+        return f"""Analyze and prioritize these tasks. Use STRICT format:
+        
+        Return EXACTLY 3 lines in this format:
+        Task: [ORIGINAL DESCRIPTION] | Priority: [1-5] | Reason: [Brief Justification]
+        
+        Today: {datetime.now().strftime("%Y-%m-%d")}
+        Tasks:
+        {task_list}
+        
+        Do NOT modify task descriptions or add extra information."""
 
     def _format_task(self, task: Dict) -> str:
-        """Format task for AI prompt"""
-        deadline = task.get('deadline', 'No deadline')
-        return f"- {task['description']} ({task.get('taskType', 'Task')}) Due: {deadline}"
-
-    def _parse_prioritization(self, response: str, original_tasks: List[Dict]) -> List[Dict]:
-        """Parse AI response into structured format"""
-        prioritized = []
-        task_map = {t['description']: t for t in original_tasks}
-        
-        for line in response.split('\n'):
-            if '- Task:' in line:
-                parts = line.split('|')
-                if len(parts) >= 3:
-                    desc = parts[0].split(':')[1].strip()
-                    priority = parts[1].split(':')[1].strip()
-                    reason = parts[2].split(':')[1].strip()
-                    
-                    if desc in task_map:
-                        prioritized.append({
-                            "task": task_map[desc],
-                            "priority": int(priority),
-                            "reason": reason
-                        })
-        return prioritized or self._fallback_prioritization(original_tasks)
+        """Standardize task formatting for prompts"""
+        return f"- {task['description']} ({task.get('taskType', 'Task')}) Due: {task.get('deadline', 'No deadline')}"
 
     def _fallback_prioritization(self, tasks: List[Dict]) -> List[Dict]:
-        """Fallback sorting by deadline"""
+        """Deadline-based fallback sorting"""
         return sorted(
-            [{"task": t, "reason": "Sorted by deadline (fallback)"} for t in tasks],
+            [{"task": t, "reason": "Fallback: Sorted by deadline"} for t in tasks],
             key=lambda x: x['task'].get('deadline', '9999-12-31')
         )
 
     def _fallback_reminder(self, task: Dict) -> str:
-        """Fallback reminder generator"""
-        return f"Reminder: Don't forget to {task.get('description', 'complete your task')} by {task.get('deadline', 'the deadline')}"
+        """Simple fallback reminder"""
+        return f"Reminder: Complete {task.get('description', 'your task')} by {task.get('deadline', 'the deadline')}"
 
     def _simulate_prioritization(self, tasks: List[Dict]) -> List[Dict]:
-        """Simulated AI prioritization"""
+        """Mock prioritization for testing"""
         return sorted(
-            [{"task": t, "reason": "Simulated priority sorting"} for t in tasks],
+            [{"task": t, "reason": "Simulated priority"} for t in tasks],
             key=lambda x: x['task'].get('deadline', '9999-12-31')
         )
 
     def _simulate_reminder(self, task: Dict) -> str:
-        """Simulated reminder generation"""
-        return f"Simulated reminder: Complete {task.get('description', 'task')} by {task.get('deadline', 'soon')}"
+        """Mock reminder for testing"""
+        return f"Simulated reminder: {task.get('description', 'Complete task')} by {task.get('deadline', 'soon')}"
 
-if __name__ == "__main__":
-    try:
-        agent = AIAgent()
-        
-        sample_tasks = [
-            {"description": "Write report", "deadline": "2024-12-20", "taskType": "Work"},
-            {"description": "Buy groceries", "deadline": "2024-12-10", "taskType": "Personal"},
-            {"description": "Prepare presentation", "deadline": "2024-12-15", "taskType": "Work"}
-        ]
-
-        print("Real AI Prioritization:")
-        prioritized = agent.prioritize_tasks(sample_tasks)
-        for task in prioritized:
-            print(f"{task['task']['description']} - {task['reason']}")
-
-        print("\nSimulated Prioritization:")
-        simulated = agent.prioritize_tasks(sample_tasks, simulate=True)
-        for task in simulated:
-            print(f"{task['task']['description']} - {task['reason']}")
-
-        sample_task = sample_tasks[0]
-        print("\nReal AI Reminder:")
-        print(agent.generate_reminder(sample_task))
-        
-        print("\nSimulated Reminder:")
-        print(agent.generate_reminder(sample_task, simulate=True))
-
-    except Exception as e:
-        print(f"Error initializing AI agent: {str(e)}")
-        print("Please ensure the model file exists at the specified path")
