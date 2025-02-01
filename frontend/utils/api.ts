@@ -1,4 +1,3 @@
-// frontend/utils/api.ts
 import axios, { AxiosInstance, AxiosError } from 'axios';
 import { Task } from '../types';
 
@@ -31,12 +30,14 @@ const api: AxiosInstance = axios.create({
 });
 
 api.interceptors.request.use(config => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('authToken');
     if (token) {
         config.headers.Authorization = `Bearer ${token}`;
     }
+    console.log("Request Interceptor: Token attached:", !!token); // Log if token is attached
     return config;
 }, error => {
+    console.error("Request Interceptor Error:", error);
     return Promise.reject(error);
 });
 
@@ -44,34 +45,18 @@ api.interceptors.request.use(config => {
 api.interceptors.response.use(
     (response) => response,
     async (error: AxiosError) => {
-        if (error.response?.status === 401) {
-            localStorage.removeItem('token');
-            window.location.href = '/login';
+        if (error.response?.status === 401 || error.response?.status === 403) { // Include 403 here as well for clearing token if forbidden
+            localStorage.removeItem('authToken');
+            console.log(`Response Interceptor: Received ${error.response?.status} status, token removed.`);
+            // Optionally redirect to login here if you want automatic redirection on 401/403
+            // window.location.href = '/login';
+        } else {
+            console.error("Response Interceptor Error:", error); // Log other errors
         }
         return Promise.reject(error);
     }
 );
 
-interface ValidationError {
-    field: string;
-    message: string;
-}
-
-export const validateRegistration = (credentials: RegisterCredentials): ValidationError[] => {
-    const errors: ValidationError[] = [];
-
-    if (!credentials.email?.trim()) {
-        errors.push({ field: 'email', message: 'Email is required' });
-    }
-    if (!credentials.password?.trim()) {
-        errors.push({ field: 'password', message: 'Password is required' });
-    }
-    if (!credentials.confirmPassword?.trim()) {
-        errors.push({ field: 'confirmPassword', message: 'Password confirmation is required' });
-    }
-
-    return errors;
-};
 
 // Authentication
 export const registerUser = async (credentials: RegisterCredentials): Promise<AuthResponse> => {
@@ -95,7 +80,7 @@ export const registerUser = async (credentials: RegisterCredentials): Promise<Au
         });
 
         if (response.data.token) {
-            localStorage.setItem('token', response.data.token);
+            localStorage.setItem('authToken', response.data.token);
             return response.data;
         }
         throw new Error('Invalid response from server');
@@ -112,7 +97,7 @@ export const loginUser = async (credentials: AuthCredentials): Promise<AuthRespo
     try {
         const response = await api.post('/auth/login', credentials);
         if (response.data.token) {
-            localStorage.setItem('token', response.data.token);
+            localStorage.setItem('authToken', response.data.token);
         }
         return response.data;
     } catch (error) {

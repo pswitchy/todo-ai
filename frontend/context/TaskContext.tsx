@@ -1,4 +1,3 @@
-// frontend/context/TaskContext.tsx
 import React, { createContext, useState, useEffect, useContext, ReactNode } from 'react';
 import { Task } from '../types';
 import * as api from '../utils/api';
@@ -37,9 +36,9 @@ const TaskProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
         try {
             const fetchedTasks = await api.getTasks();
             setTasks(fetchedTasks);
-        } catch (error) {
+        } catch (error: any) { // Capture error as any to access response details
             console.error("Failed to fetch tasks:", error);
-            setError("Failed to fetch tasks. Please try again.");
+            setError(`Failed to fetch tasks. Please try again. ${error?.response?.status === 403 ? 'Forbidden - Check Permissions.' : ''} ${error?.message}`); // More informative error
         } finally {
             setLoading(false);
         }

@@ -11,7 +11,7 @@ const config = {
 
 // Validate required configuration in production
 if (config.nodeEnv === 'production') {
-    const requiredFields = ['jwtSecret', 'mongoUri', 'privateKey', 'contractAddress'];
+    const requiredFields = ['jwtSecret', 'mongoUri']; // Removed privateKey and contractAddress if not strictly required for core functionality
     requiredFields.forEach(field => {
         if (!config[field]) {
             throw new Error(`Missing required environment variable: ${field}`);

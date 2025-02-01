@@ -23,9 +23,9 @@ exports.register = async (req, res) => {
 
         const hashedPassword = await bcrypt.hash(password, 12); // Salt rounds should be 12 or higher
 
-        const newUser = new User({ 
+        const newUser = new User({
             email: email.toLowerCase(), // Store email in lowercase to avoid duplicates
-            password: hashedPassword 
+            password: hashedPassword
         });
         await newUser.save();
 

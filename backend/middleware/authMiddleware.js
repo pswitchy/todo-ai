@@ -1,5 +1,6 @@
 // backend/middleware/authMiddleware.js
 const jwt = require('jsonwebtoken');
+const config = require('../config/config'); // Import config
 
 const authMiddleware = (req, res, next) => {
     const authHeader = req.headers.authorization;
@@ -7,7 +8,7 @@ const authMiddleware = (req, res, next) => {
     if (authHeader) {
         const token = authHeader.split(' ')[1]; // Bearer <token>
 
-        jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+        jwt.verify(token, config.jwtSecret, (err, user) => { // Use jwtSecret from config
             if (err) {
                 return res.sendStatus(403); // Forbidden - invalid token
             }

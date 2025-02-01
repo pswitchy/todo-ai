@@ -1,5 +1,6 @@
+// backend/controllers/aiController.js
 const axios = require('axios');
-const AI_SERVICE_URL = 'http://127.0.0.1:5001';
+const AI_SERVICE_URL = 'http://127.0.0.1:5001'; // Ensure AI service is running at this URL
 
 exports.prioritizeTasks = async (req, res) => {
     try {
@@ -9,8 +10,8 @@ exports.prioritizeTasks = async (req, res) => {
         res.json(response.data);
     } catch (error) {
         console.error('AI prioritization error:', error);
-        res.status(500).json({ 
-            message: error.response?.data?.error || 'AI service error' 
+        res.status(500).json({
+            message: error.response?.data?.error || 'AI service error'
         });
     }
 };
