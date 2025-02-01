@@ -164,7 +164,7 @@ export const prioritizeTasks = async (tasks: Task[]): Promise<Task[]> => {
     return response.data;
 };
 
-export const getReminder = async (taskDescription: string, deadline: string): Promise<string> => {
-    const response = await api.post('/ai/reminders', { taskDescription, deadline });
-    return response.data;
+export const getReminder = async (task: Task): Promise<string> => {
+    const response = await api.post('/ai/reminders', task);
+    return response.data.reminder;
 };

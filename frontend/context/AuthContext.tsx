@@ -1,5 +1,7 @@
 // frontend/context/AuthContext.tsx
+
 import React, { createContext, useState, useEffect, useContext, ReactNode } from 'react';
+import { useRouter } from 'next/router';
 
 interface AuthContextType {
     isLoggedIn: boolean;
@@ -8,12 +10,7 @@ interface AuthContextType {
     token: string | null;
 }
 
-const AuthContext = createContext<AuthContextType>({
-    isLoggedIn: false,
-    login: () => {},
-    logout: () => {},
-    token: null,
-});
+const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 
 interface AuthProviderProps {
     children: ReactNode;
@@ -22,7 +19,9 @@ interface AuthProviderProps {
 const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const [token, setToken] = useState<string | null>(null);
     const [isLoggedIn, setIsLoggedIn] = useState(false);
+    const router = useRouter();
 
+    // Initialize auth state from localStorage on mount
     useEffect(() => {
         const storedToken = localStorage.getItem('authToken');
         if (storedToken) {
@@ -31,18 +30,21 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         }
     }, []);
 
+    // Login function to set token and update state
     const login = (newToken: string) => {
         setToken(newToken);
         setIsLoggedIn(true);
         localStorage.setItem('authToken', newToken);
     };
 
+    // Logout function to clear token and update state
     const logout = () => {
         setToken(null);
         setIsLoggedIn(false);
         localStorage.removeItem('authToken');
     };
 
+    // Context value
     const value: AuthContextType = {
         isLoggedIn,
         login,
@@ -57,6 +59,7 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     );
 };
 
+// Custom hook to use the AuthContext
 export const useAuth = () => {
     const context = useContext(AuthContext);
     if (!context) {

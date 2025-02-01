@@ -68,7 +68,7 @@ exports.getTask = async (req, res) => {
             deadline: task.deadline,
             taskType: task.taskType,
             completed: task.completed,
-            blockchainVerified: task.blockchainVerified
+            // blockchainVerified: task.blockchainVerified
         });
     } catch (error) {
         console.error('Error fetching task:', error);

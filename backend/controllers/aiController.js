@@ -1,26 +1,30 @@
 const axios = require('axios');
+const AI_SERVICE_URL = 'http://127.0.0.1:5001';
 
 exports.prioritizeTasks = async (req, res) => {
     try {
-        // Example integration with AI service
-        const response = await axios.post('https://api.example-ai.com/prioritize', {
-            tasks: req.body.tasks,
-            userId: req.userId
+        const response = await axios.post(`${AI_SERVICE_URL}/prioritize`, {
+            tasks: req.body.tasks
         });
-        
         res.json(response.data);
     } catch (error) {
         console.error('AI prioritization error:', error);
-        res.status(500).json({ message: 'AI service unavailable' });
+        res.status(500).json({ 
+            message: error.response?.data?.error || 'AI service error' 
+        });
     }
 };
 
-exports.getReminder = async (_req, res) => {
+exports.getReminder = async (req, res) => {
     try {
-        // Implement actual AI integration
-        res.json({ message: 'Reminder feature not implemented yet' });
+        const response = await axios.post(`${AI_SERVICE_URL}/reminder`, {
+            task: req.body
+        });
+        res.json({ reminder: response.data.reminder });
     } catch (error) {
         console.error('AI reminder error:', error);
-        res.status(500).json({ message: 'Failed to generate reminder' });
+        res.status(500).json({
+            message: error.response?.data?.error || 'Reminder generation failed'
+        });
     }
 };
