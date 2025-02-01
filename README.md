@@ -11,14 +11,14 @@ This project is a to-do application that leverages AI to enhance task management
 *   **Smart Reminders:**  AI can suggest smart reminders based on task details and deadlines (feature in progress, basic reminder implemented).
 *   **Task Analytics Dashboard:**  Provides visual insights into your task completion rate and task distribution by type.
 *   **User Authentication:** Secure user registration and login system to protect your personal tasks.
-*   **Responsive Frontend:** Built with React and Tailwind CSS for a modern and user-friendly experience across devices.
+*   **Responsive Frontend:** Built with Next.js, Typescript and Tailwind CSS for a modern and user-friendly experience across devices.
 *   **RESTful API Backend:**  Backend built with Node.js, Express, and MongoDB to handle data management and API requests.
 *   **AI Service Backend:**  Separate Python Flask service for AI processing, ensuring scalability and separation of concerns.
 
 ## Technologies Used
 
 *   **Frontend:**
-    *   React
+    *   Typescript
     *   Next.js
     *   Tailwind CSS
     *   Recharts (for analytics)
