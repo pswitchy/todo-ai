@@ -15,6 +15,7 @@ interface TaskContextType {
     loading: boolean;
     error: string | null;
     aiLoading: boolean;
+    setAiLoading: (loading: boolean) => void;
 }
 
 const TaskContext = createContext<TaskContextType | undefined>(undefined);
@@ -145,7 +146,8 @@ const TaskProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
             prioritizeTasks,
             loading,
             error,
-            aiLoading
+            aiLoading,
+            setAiLoading
         }}>
             {children}
         </TaskContext.Provider>

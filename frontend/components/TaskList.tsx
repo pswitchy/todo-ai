@@ -12,10 +12,11 @@ interface TaskListProps {
 }
 
 const TaskList: React.FC<TaskListProps> = ({ tasks: propTasks, onEditTask, onDeleteTask, onCompleteTask }) => {
-    const { tasks, prioritizedTasks, loading, aiLoading, error } = useTask();
+    const { tasks, prioritizedTasks, loading, aiLoading, error, prioritizeTasks: callPrioritizeTasks, setAiLoading } = useTask(); // Get setAiLoading from context
     const [viewMode, setViewMode] = useState<'all' | 'prioritized'>('all');
     const [sortBy, setSortBy] = useState<'priority' | 'deadline'>('priority');
     const [filterType, setFilterType] = useState<string>('all');
+    const [aiPrioritizationError, setAiPrioritizationError] = useState<string | null>(null); // State for AI error message
 
     const displayedTasks = viewMode === 'prioritized' ? prioritizedTasks : propTasks;
 
@@ -26,9 +27,25 @@ const TaskList: React.FC<TaskListProps> = ({ tasks: propTasks, onEditTask, onDel
         return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
     });
 
-    const filteredTasks = filterType === 'all' 
-        ? sortedTasks 
+    const filteredTasks = filterType === 'all'
+        ? sortedTasks
         : sortedTasks.filter(task => task.taskType === filterType);
+
+    const handleAIPrioritizationClick = async () => {
+        setAiLoading(true); // Now you can use setAiLoading here if you wanted to manually set loading before and after the call
+        setAiPrioritizationError(null); // Clear any previous error
+        try {
+            await callPrioritizeTasks(); // Call the prioritizeTasks function from context
+            setViewMode('prioritized'); // Automatically switch to prioritized view after success
+        } catch (err: any) {
+            console.error("AI Prioritization Failed:", err);
+            setAiPrioritizationError("AI prioritization is temporarily unavailable."); // Set error message
+            setViewMode('all'); // Fallback to 'all' tasks view
+        } finally {
+            // setAiLoading(false); // setAiLoading is already being managed inside prioritizeTasks in context. No need to set it here again.
+        }
+    };
+
 
     if (loading) {
         return (
@@ -64,16 +81,18 @@ const TaskList: React.FC<TaskListProps> = ({ tasks: propTasks, onEditTask, onDel
                         All Tasks
                     </button>
                     <button
-                        onClick={() => setViewMode('prioritized')}
+                        onClick={handleAIPrioritizationClick} // Call handleAIPrioritizationClick on button click
+                        disabled={aiLoading} // Disable button while loading
                         className={`px-4 py-2 rounded-md text-sm font-medium ${
                             viewMode === 'prioritized'
                                 ? 'bg-blue-500 text-white'
                                 : 'bg-gray-100 hover:bg-gray-200'
                         }`}
                     >
-                        AI Prioritized
+                        {aiLoading ? "Prioritizing..." : "AI Prioritized"}
                     </button>
                 </div>
+
 
                 <div className="flex items-center space-x-2">
                     <span className="text-sm font-medium">Sort by:</span>
@@ -102,6 +121,14 @@ const TaskList: React.FC<TaskListProps> = ({ tasks: propTasks, onEditTask, onDel
                     </select>
                 </div>
             </div>
+
+             {/* AI Error Message */}
+            {aiPrioritizationError && viewMode !== 'prioritized' && (
+                <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded relative" role="alert">
+                    <strong className="font-bold">Warning!</strong>
+                    <span className="block sm:inline"> {aiPrioritizationError} Viewing default task list.</span>
+                </div>
+            )}
 
             {/* AI Loading Indicator */}
             {aiLoading && viewMode === 'prioritized' && (

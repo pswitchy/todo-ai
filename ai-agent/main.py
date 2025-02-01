@@ -1,9 +1,10 @@
+# main.py
 from agent import AIAgent
 
 def main():
     try:
         agent = AIAgent()
-        
+
         test_tasks = [
             {"description": "Prepare project demo", "deadline": "2024-12-21", "taskType": "Work"},
             {"description": "Book dentist appointment", "deadline": "2024-12-09", "taskType": "Personal"},
@@ -22,4 +23,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
